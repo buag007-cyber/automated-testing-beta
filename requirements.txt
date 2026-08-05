@@ -1,0 +1,4 @@
+# 项目依赖（pytest 测试 + GPS注入脚本都要用）
+appium-python-client>=5.0   # Appium客户端 (UI自动化)
+gpxpy>=1.6                  # GPX解析 (GPS注入)
+pytest>=8.0                 # 测试框架

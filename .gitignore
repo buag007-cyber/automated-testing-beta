@@ -1,0 +1,13 @@
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# 虚拟环境 (PyCharm自动生成, 不进git)
+.venv/
+
+# IDE
+.idea/
+
+# 测试报告
+report.html
