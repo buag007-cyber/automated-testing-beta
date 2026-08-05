@@ -25,5 +25,5 @@ jobs:
       - name: 安装依赖
         run: pip install -r requirements.txt
 
-      - name: 运行测试 (跳过UI)
-        run: pytest -m "not ui" -v
+      - name: 运行测试 (跳过UI, 带覆盖率)
+        run: pytest -m "not ui" -v --cov=cc_android --cov-report=term-missing

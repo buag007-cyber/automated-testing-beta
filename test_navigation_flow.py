@@ -18,7 +18,7 @@ import os
 
 import pytest
 
-pytestmark = pytest.mark.ui  # UI用例: 无真机时 conftest 自动跳过
+pytestmark = [pytest.mark.ui, pytest.mark.timeout(600)]  # UI用例: 无真机跳过, 10分钟超时防卡死
 
 # ── 日志（桌面/自动化测试log）──
 LOG_DIR = r"C:\Users\Administrator\Desktop\自动化测试log"

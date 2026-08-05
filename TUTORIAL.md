@@ -113,6 +113,9 @@ pytest -m "not ui"        # 显式排除UI用例 (CI里就是这条)
 pytest -k dist            # 按名字过滤: 只跑名字带dist的
 pytest --html=report.html # 装pytest-html后生成HTML报告
 pytest -q                 # 安静模式, 只显示 . 和 F
+pytest --cov=cc_android --cov-report=term-missing test_unit_gps.py
+                          # 覆盖率: 看cc-android.py被测了多少
+                          # (加载名是cc_android, 不是cc-android.py, 带连字符不能import)
 ```
 
 ### 7. 以后新代码怎么加测试（你的场景）

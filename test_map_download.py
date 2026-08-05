@@ -15,7 +15,7 @@ import time, subprocess, threading, os
 
 import pytest
 
-pytestmark = pytest.mark.ui  # UI用例: 无真机时 conftest 自动跳过
+pytestmark = [pytest.mark.ui, pytest.mark.timeout(600)]  # UI用例: 无真机跳过, 10分钟超时防卡死
 
 APPIUM_URL = "http://127.0.0.1:4723"
 CAPS = {
