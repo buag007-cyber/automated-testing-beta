@@ -1,13 +1,42 @@
 # conftest.py — pytest 全局配置
-# 规则:
-#   默认只跑纯逻辑单测 (test_unit_gps.py), UI用例全部跳过
-#   要跑 UI 用例: 设环境变量 RUN_UI=1 (且需真机在线)
-#   CI 里永远不设 RUN_UI → UI 自动跳过, 只跑单测
+# 职责:
+#   1. driver fixture: 整个测试流程共享一个 Appium 连接
+#      (一台手机同时只能有一个 UiAutomator2 会话, 各脚本不能各自连接)
+#   2. RUN_UI 开关: 没设 RUN_UI=1 或无真机时, UI 用例全部跳过
 
 import os
 import subprocess
 
 import pytest
+from appium import webdriver
+from appium.options.android import UiAutomator2Options
+
+APPIUM_URL = "http://127.0.0.1:4723"
+CAPS = {
+    "platformName": "Android",
+    "automationName": "UiAutomator2",
+    "deviceName": "Android Device",
+    "appPackage": "com.shiye.cyclingai.ride",
+    "noReset": True,
+    "fullReset": False,
+    "dontStopAppOnReset": True,
+    "newCommandTimeout": 300,
+    "adbExecTimeout": 60000,
+    "autoGrantPermissions": True,
+}
+
+
+@pytest.fixture(scope="session")
+def driver():
+    """Appium 连接, 整个流程只连一次, 结束统一断开"""
+    drv = webdriver.Remote(
+        APPIUM_URL, options=UiAutomator2Options().load_capabilities(CAPS)
+    )
+    yield drv
+    try:
+        drv.quit()
+    except Exception:
+        pass
 
 
 def _has_device():

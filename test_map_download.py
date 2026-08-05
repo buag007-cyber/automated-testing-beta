@@ -15,7 +15,7 @@ import time, subprocess, threading, os
 
 import pytest
 
-pytestmark = [pytest.mark.ui, pytest.mark.timeout(600)]  # UI用例: 无真机跳过, 10分钟超时防卡死
+pytestmark = [pytest.mark.ui, pytest.mark.timeout(600), pytest.mark.order(4)]  # 流程第4步: 地图下载
 
 APPIUM_URL = "http://127.0.0.1:4723"
 CAPS = {
@@ -133,8 +133,11 @@ def wait_download_done(driver, timeout=7200):
 
 # ── 主流程 ──
 
-def test_map_download():
-    driver = webdriver.Remote(APPIUM_URL, options=UiAutomator2Options().load_capabilities(CAPS))
+def test_map_download(driver=None):
+    """离线地图下载流程 (pytest共享driver, 直跑自建)"""
+    own = driver is None
+    if own:
+        driver = webdriver.Remote(APPIUM_URL, options=UiAutomator2Options().load_capabilities(CAPS))
 
     try:
         # 下载期间保持亮屏
@@ -192,7 +195,8 @@ def test_map_download():
         # 恢复自动锁屏
         subprocess.run(["adb", "shell", "svc", "power", "stayon", "false"])
         stop_logcat()
-        driver.quit()
+        if own:
+            driver.quit()
 
 
 if __name__ == "__main__":

@@ -20,7 +20,7 @@ import os
 
 import pytest
 
-pytestmark = [pytest.mark.ui, pytest.mark.timeout(600)]  # UI用例: 无真机跳过, 10分钟超时防卡死
+pytestmark = [pytest.mark.ui, pytest.mark.timeout(600), pytest.mark.order(1)]  # 流程第1步: 训练计划
 
 # ── 日志（桌面/自动化测试log）──
 LOG_DIR = r"C:\Users\Administrator\Desktop\自动化测试log"
@@ -142,9 +142,11 @@ def stop_logcat():
         print(f"[日志] 已保存: {LOG_FILE}")
 
 
-def test_full_flow():
-    """增→改→删 完整流程"""
-    driver = webdriver.Remote(APPIUM_URL, options=UiAutomator2Options().load_capabilities(CAPS))
+def test_full_flow(driver=None):
+    """增→改→删 完整流程 (pytest共享driver, 直跑自建)"""
+    own = driver is None
+    if own:
+        driver = webdriver.Remote(APPIUM_URL, options=UiAutomator2Options().load_capabilities(CAPS))
 
     try:
         # 强制重启App→主界面, 避免上次停在子页面找不到底部导航
@@ -265,7 +267,8 @@ def test_full_flow():
 
     finally:
         stop_logcat()
-        driver.quit()
+        if own:
+            driver.quit()
 
 
 def modify_warmup(driver):

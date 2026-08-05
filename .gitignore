@@ -11,3 +11,4 @@ __pycache__/
 
 # 测试报告
 report.html
+.coverage
