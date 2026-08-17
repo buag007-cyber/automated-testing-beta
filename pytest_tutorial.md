@@ -55,11 +55,11 @@ pip install pytest          # 装框架（你已经装了 pytest-order/html/time
 ```
 PythonProjectKK/
 ├── pytest.ini              # pytest 配置文件（告诉它去哪找用例）
-├── conftest.py             # 全局配置 + 共享的 driver
+├── conftest.py             # 全局配置 + 共享的 driver + GPS注入fixture
 ├── test_plan_full_flow.py  # 用例文件1（训练计划）
-├── test_gps_inject.py      # 用例文件2（GPS注入）
-├── test_navigation_flow.py # 用例文件3（导航）
-└── test_map_download.py    # 用例文件4（地图下载）
+├── test_navigation_flow.py # 用例文件2（导航, 带GPS注入）
+├── test_map_download.py    # 用例文件3（地图下载）
+└── test_stage_challenge.py # 用例文件4（赛段挑战）
 ```
 
 pytest.ini 内容：
@@ -230,7 +230,7 @@ def driver():
 用例怎么用？**参数名对上就行**：
 
 ```python
-def test_gps_inject(driver):      # 参数叫 driver → pytest 自动注入
+def test_navigation_flow(driver, gps_bg):      # 参数叫 driver → pytest 自动注入
     driver.set_location(lat, lon, ele, speed=spd)
 ```
 
@@ -312,8 +312,7 @@ def test_xxx(driver=None):
 
 ### 想改已有步骤的行为？
 
-- 改注入时长：test_gps_inject.py 顶部 `INJECT_SECONDS = 60`
-- 换 GPX 路线：test_gps_inject.py 里 `cfg.gpx_file = r"新路径"`
+- 换 GPX 路线：conftest.py 顶部 `GPS_GPX = r"新路径"`（注入逻辑在 gps_bg fixture）
 - 某步失败想继续：跑的时候去掉 `-x`
 
 ---
@@ -324,8 +323,8 @@ def test_xxx(driver=None):
 python -m pytest                     # 跑全部
 python -m pytest -v                  # 详细显示每个用例
 python -m pytest -q                  # 安静模式, 只显示 . F s
-python -m pytest test_gps_inject.py  # 只跑某个文件
-python -m pytest -k inject           # 按名字过滤
+python -m pytest test_navigation_flow.py  # 只跑某个文件
+python -m pytest -k nav              # 按名字过滤
 python -m pytest -m ui               # 按标记过滤
 python -m pytest -x                  # 一挂就停(失败即停)
 python -m pytest --collect-only      # 只看收集了哪些用例, 不执行

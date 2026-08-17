@@ -18,7 +18,7 @@ import os
 
 import pytest
 
-pytestmark = [pytest.mark.ui, pytest.mark.timeout(600), pytest.mark.order(3)]  # 流程第3步: 导航
+pytestmark = [pytest.mark.ui, pytest.mark.timeout(600), pytest.mark.order(4)]  # 流程第4步: 导航+GPS
 
 # ── 日志（桌面/自动化测试log）──
 LOG_DIR = r"C:\Users\Administrator\Desktop\自动化测试log"
@@ -52,6 +52,10 @@ MAP_LONG_PRESS = (AppiumBy.ANDROID_UIAUTOMATOR,
 SEND_NAV     = f"{ID}/itemAlternativeRoutesIvGo"    # 发送导航
 NAV_START    = (AppiumBy.ANDROID_UIAUTOMATOR,
                 'new UiSelector().className("android.widget.ImageView").instance(0)')  # 地图导航开始
+FINISH_ACTIVITY = f"{ID}/mapFinishBt"               # 完成活动(结束导航)
+CONFIRM_FINISH = f"{ID}/tv_d_ok"                    # 确定完成活动(弹窗)
+
+NAV_RUN_SECONDS = 30   # 导航运行时长(秒), 完成后结束活动
 
 
 def wait_click(driver, locator, timeout=10):
@@ -101,8 +105,10 @@ def stop_logcat():
         print(f"[日志] 已保存: {LOG_FILE}")
 
 
-def test_navigation_flow(driver=None):
-    """地图导航 完整流程 (pytest共享driver, 直跑自建)"""
+def test_navigation_flow(driver=None, gps_bg=None):
+    """地图导航 完整流程 (pytest共享driver+GPS注入, 直跑自建driver无注入)
+    gps_bg: 只有导航需要GPS注入, 由pytest自动注入此fixture
+    """
     own = driver is None
     if own:
         driver = webdriver.Remote(APPIUM_URL, options=UiAutomator2Options().load_capabilities(CAPS))
@@ -148,6 +154,17 @@ def test_navigation_flow(driver=None):
         # 地图导航开始
         wait_click(driver, NAV_START)
         print("[6] ✅ 点击地图导航开始")
+
+        # 导航运行 (gps_bg后台持续注入, App处于导航中)
+        print(f"[7] 导航运行 {NAV_RUN_SECONDS}s (GPS注入中) ...")
+        time.sleep(NAV_RUN_SECONDS)
+
+        # 结束活动 (对应txt导航流程: 运行后点击结束活动)
+        try_click(driver, (AppiumBy.ID, FINISH_ACTIVITY), timeout=10)
+        print("[8] 点击完成活动(结束导航)")
+
+        try_click(driver, (AppiumBy.ID, CONFIRM_FINISH), timeout=5)
+        print("[9] 确定完成活动(弹窗若有)")
 
         print("\n🎉 地图导航流程完成")
     finally:

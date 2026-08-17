@@ -15,7 +15,7 @@ import time, subprocess, threading, os
 
 import pytest
 
-pytestmark = [pytest.mark.ui, pytest.mark.timeout(600), pytest.mark.order(4)]  # 流程第4步: 地图下载
+pytestmark = [pytest.mark.ui, pytest.mark.timeout(600), pytest.mark.order(2)]  # 流程第2步: 地图下载
 
 APPIUM_URL = "http://127.0.0.1:4723"
 CAPS = {

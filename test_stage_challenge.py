@@ -17,7 +17,7 @@ import os
 
 import pytest
 
-pytestmark = [pytest.mark.ui, pytest.mark.timeout(600), pytest.mark.order(5)]  # 流程第5步: 赛段挑战
+pytestmark = [pytest.mark.ui, pytest.mark.timeout(600), pytest.mark.order(3)]  # 流程第3步: 赛段挑战 创建→删除
 
 # ── 日志（桌面/自动化测试log）──
 LOG_DIR = r"C:\Users\Administrator\Desktop\自动化测试log"
@@ -102,8 +102,10 @@ def stop_logcat():
         print(f"[日志] 已保存: {LOG_FILE}")
 
 
-def test_stage_flow(driver=None):
-    """赛段挑战 创建→删除 完整流程 (pytest共享driver, 直跑自建)"""
+def test_stage_flow(driver=None, gps_bg=None):
+    """赛段挑战 创建→删除 完整流程 (pytest共享driver+GPS注入, 直跑自建driver无注入)
+    gps_bg: 赛段挑战需模拟骑行, 由pytest自动注入此fixture
+    """
     own = driver is None
     if own:
         driver = webdriver.Remote(APPIUM_URL, options=UiAutomator2Options().load_capabilities(CAPS))

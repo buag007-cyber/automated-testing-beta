@@ -1,0 +1,165 @@
+/* report.css — pytest-html 报告美化 (浅色主题)
+   用法: pytest --html=report.html --css=report.css --self-contained-html */
+
+/* 页面底色 */
+body {
+    background: #f1f5f9;           /* 浅灰蓝 */
+    color: #1e293b;
+    font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+    padding: 20px;
+}
+
+/* 报告主容器 */
+#wrapper {
+    max-width: 1200px;
+    margin: 0 auto;
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 24px 32px;
+    box-shadow: 0 4px 16px rgba(15, 23, 42, .08);
+}
+
+/* 标题 */
+h1 {
+    color: #1d4ed8;                /* 深蓝 */
+    font-size: 26px;
+    border-bottom: 2px solid #e2e8f0;
+    padding-bottom: 12px;
+}
+
+/* 统计概要 */
+.totals,
+.generated-by {
+    color: #64748b;
+    font-size: 14px;
+}
+
+/* 概要数字加粗高亮 */
+.totals {
+    background: #f8fafc;
+    border-radius: 8px;
+    padding: 12px 16px;
+    display: inline-block;
+    border: 1px solid #e2e8f0;
+}
+
+/* 结果表格 */
+.results-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 16px;
+    background: #ffffff;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+}
+
+.results-table th {
+    background: #f1f5f9;
+    color: #475569;
+    padding: 10px 14px;
+    text-align: left;
+    font-size: 13px;
+    letter-spacing: .5px;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.results-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: 14px;
+}
+
+/* 行悬停高亮 */
+.results-table tbody tr:hover {
+    background: #f8fafc;
+}
+
+/* 用例名 */
+.results-table td:nth-child(2) {
+    color: #0f172a;
+    font-weight: 600;
+}
+
+/* 状态标签 (passed/failed/skipped) */
+.label {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .5px;
+}
+
+.label.success {
+    background: #16a34a;           /* 通过=绿 */
+    color: #fff;
+}
+
+.label.failed {
+    background: #dc2626;           /* 失败=红 */
+    color: #fff;
+}
+
+.label.skipped {
+    background: #d97706;           /* 跳过=橙 */
+    color: #fff;
+}
+
+.label.xfailed,
+.label.xpassed {
+    background: #7c3aed;           /* 预期失败=紫 */
+    color: #fff;
+}
+
+/* 整行状态着色 (浅色下用淡底色) */
+tr.passed { background: rgba(22, 163, 74, .05); }
+tr.failed { background: rgba(220, 38, 38, .06); }
+tr.skipped { background: rgba(217, 119, 6, .04); }
+
+/* 失败详情里的 traceback */
+pre {
+    background: #f8fafc;
+    color: #b91c1c;
+    border-left: 4px solid #dc2626;
+    border-radius: 6px;
+    padding: 12px;
+    overflow-x: auto;
+    font-size: 13px;
+    border-top: 1px solid #e2e8f0;
+    border-right: 1px solid #e2e8f0;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+/* 环境信息表 */
+#environment_table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 16px;
+    background: #ffffff;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+}
+
+#environment_table th {
+    background: #f1f5f9;
+    color: #475569;
+    padding: 8px 14px;
+    text-align: left;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+#environment_table td {
+    padding: 8px 14px;
+    border-bottom: 1px solid #f1f5f9;
+    color: #475569;
+}
+
+/* 链接 */
+a {
+    color: #2563eb;
+    text-decoration: none;
+}
+a:hover {
+    text-decoration: underline;
+}

@@ -8,15 +8,17 @@
 ## 一、现在的流程结构
 
 ```
-RUN_UI=1 pytest -m ui        ← 一条命令跑整个流程
+RUN_UI=1 pytest -m ui        ← 一条命令跑整个流程 (或桌面 run.bat 双击)
   │
-  ├─ [1] test_plan_full_flow.py   训练计划 增→改→删   (order=1)
-  ├─ [2] test_gps_inject.py       GPS注入, 模拟骑行60s (order=2)
-  ├─ [3] test_navigation_flow.py  地图导航            (order=3)
-  └─ [4] test_map_download.py     离线地图下载          (order=4)
+  ├─ [1] test_plan_full_flow.py   训练计划 增→改→删   (order=1, 纯UI)
+  ├─ [2] test_map_download.py     离线地图下载          (order=2, 纯UI)
+  ├─ [3] test_stage_challenge.py  赛段挑战 创建→删除+GPS (order=3, gps_bg)
+  └─ [4] test_navigation_flow.py  地图导航+GPS模拟      (order=4, gps_bg)
 
   所有步骤共享一个 Appium 连接 (conftest.py 的 driver fixture)
   driver 连接在第一步前建立, 最后一步跑完统一断开
+  GPS注入: order3 赛段挑战和 order4 导航都声明 gps_bg fixture
+  (各自用例执行期间后台线程持续注入, 用例结束自动停)
 ```
 
 ### 为什么必须共享 driver？
@@ -64,10 +66,10 @@ RUN_UI=1 python -m pytest -m ui -v
 RUN_UI=1 python -m pytest -m ui -v -x
 
 # 只跑某一步
-RUN_UI=1 python -m pytest test_gps_inject.py -v
+RUN_UI=1 python -m pytest test_navigation_flow.py -v
 
 # 跳过某一步（比如只跑 3 和 4）
-RUN_UI=1 python -m pytest -m ui -v -k "navigation or map"
+RUN_UI=1 python -m pytest -m ui -v -k "map or stage"
 
 # 单步调试（老用法，不经过 pytest）
 python test_plan_full_flow.py
@@ -108,31 +110,21 @@ def test_xxx(driver=None):
 
 ### 2. 调整其他文件的 order 数字
 
-比如新脚本想插在导航(3)和地图下载(4)中间：
-- 新文件: `pytest.mark.order(4)`
-- test_map_download.py 改成: `pytest.mark.order(5)`
+比如新脚本想插在导航(2)和地图下载(3)中间：
+- 新文件: `pytest.mark.order(3)`
+- test_map_download.py 改成: `pytest.mark.order(4)`
+- test_stage_challenge.py 改成: `pytest.mark.order(5)`
 
 数字即顺序，改数字就是调顺序。
 
-### 3. 想复用 cc-android 的 GPS 逻辑？
+### 3. 某步骤需要 GPS 注入？
 
-看 test_gps_inject.py 怎么做的：
+在测试函数参数里声明 gps_bg（conftest 里的 fixture），导航用例就这么干的：
 
 ```python
-import importlib.util
-from pathlib import Path
-
-_CC = Path(__file__).parent / "cc-android.py"   # 动态加载, 不改原脚本
-_spec = importlib.util.spec_from_file_location("cc_android", _CC)
-cc = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(cc)
-
-cfg = cc.Config()
-pts = cc.load_route(cfg.gpx_file)      # 加载GPX路线
-pl = cc.Player(pts, cfg)               # 播放器
-for lat, lon, ele, spd in pl.play():   # 逐个坐标
-    driver.set_location(lat, lon, ele, speed=spd)  # 注入
-    time.sleep(0.5)
+def test_navigation_flow(driver=None, gps_bg=None):
+    # gps_bg 由 pytest 自动注入: 用例开始起后台线程持续注入GPS
+    # 用例结束线程自动停止, 其他不声明的用例完全不注入
 ```
 
 ---
@@ -166,9 +158,9 @@ CI 的作用是防止"提交了语法错误/导入失败"的坏代码。
 A: 用了 pytest-order 且 conftest 有 driver fixture，不会出现。
    真出现说明 test 函数里手写了 driver 参数默认值冲突，检查签名。
 
-**Q: 想调注入时长 / 换 GPX 路线**
-A: 改 test_gps_inject.py 顶部：
-   `INJECT_SECONDS = 60` 或 `cc.Config().gpx_file = r"路径"`
+**Q: 想换 GPX 路线**
+A: 改 conftest.py 顶部：
+   `GPS_GPX = r"路径"`  (注入逻辑在 conftest 的 gps_bg fixture 里)
 
 **Q: 某步失败想继续跑后面的**
 A: 去掉 `-x` 参数。pytest 默认全部执行完，只是失败的标红。
