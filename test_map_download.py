@@ -15,7 +15,7 @@ import time, subprocess, threading, os
 
 import pytest
 
-pytestmark = [pytest.mark.ui, pytest.mark.timeout(600), pytest.mark.order(2)]  # 流程第2步: 地图下载
+pytestmark = [pytest.mark.ui, pytest.mark.timeout(3600), pytest.mark.order(2)]  # 流程第2步: 地图下载(可能十几分钟, 超时给1小时)
 
 APPIUM_URL = "http://127.0.0.1:4723"
 CAPS = {
@@ -90,11 +90,29 @@ def delete_btn_present(driver, timeout=3):
 
 # ── logcat 后台抓取 ──
 
+def _app_uid():
+    """查 app UID(安装后固定), 用于 logcat 按 UID 过滤"""
+    try:
+        out = subprocess.run(["adb", "shell", "pm", "list", "packages", "-U", "com.shiye.cyclingai.ride"],
+                             capture_output=True, text=True, timeout=10).stdout
+        for line in out.splitlines():
+            if " uid:" in line:
+                return line.strip().rsplit("uid:", 1)[1]
+    except Exception:
+        pass
+    return None
+
 def start_logcat():
-    """后台抓 logcat, 按包名过滤, 写到 map_download.log"""
+    """后台抓 logcat, 按 UID 过滤 app 全量日志, 写到 map_download.log"""
     global _logcat_proc
-    cmd = ["adb", "logcat", "-v", "time", "-s", "ActivityManager:I", "AndroidRuntime:E",
-           "Appium_*:I", "*:S"]
+    uid = _app_uid()
+    if uid:
+        # app 全量日志(Mapbox下载/业务打印/崩溃), 不再 *:S 静音
+        cmd = ["adb", "logcat", "-v", "time", f"--uid={uid}"]
+    else:
+        # UID 取不到时兜底: 系统上下文+崩溃
+        cmd = ["adb", "logcat", "-v", "time", "-s", "ActivityManager:I", "AndroidRuntime:E", "*:S"]
+        print("[日志] 未取到 app UID, 退化为系统上下文过滤")
     try:
         _logcat_proc = subprocess.Popen(cmd, stdout=open(LOG_FILE, "w", encoding="utf-8", errors="ignore"))
     except Exception as e:
@@ -111,7 +129,8 @@ def stop_logcat():
 # ── 下载完成检测 ──
 
 def wait_download_done(driver, timeout=7200):
-    """等待下载完成: 删除按钮重现 (ID=mapManagementPageCancelIbt 且文字=删除)"""
+    """等待下载完成: 删除按钮重现 (ID=mapManagementPageCancelIbt 且文字=删除)
+    轮询期间持续抓进度文本(百分比/大小), 每20秒打印一次诊断"""
     start = time.time()
     last_log = 0
     while time.time() - start < timeout:
@@ -122,7 +141,18 @@ def wait_download_done(driver, timeout=7200):
         except Exception:
             states = ["查询异常"]
         if time.time() - last_log > 20:
-            print(f"  [诊断] {int((time.time()-start)/60)}分{int(time.time()-start)%60}s  CancelIbt状态: {states}")
+            # 抓页面进度文本: 百分比 或 已下载大小(MB/GB)
+            prog = ""
+            try:
+                texts = [el.text for el in driver.find_elements(
+                    AppiumBy.ANDROID_UIAUTOMATOR,
+                    'new UiSelector().className("android.widget.TextView")')]
+                prog = next((t for t in texts if "%" in t), "") \
+                    or next((t for t in texts if "MB" in t or "GB" in t), "")
+            except Exception:
+                pass
+            print(f"  [诊断] {int((time.time()-start)//60)}分{int(time.time()-start)%60}s  "
+                  f"CancelIbt: {states}  进度: {prog}")
             last_log = time.time()
         # 完成信号: 按钮存在且文字=删除 (下载中是"取消", 不匹配)
         if any("删除" in s for s in states):

@@ -124,11 +124,29 @@ def swipe_up(driver, times=1):
 
 # ── logcat 后台抓取 ──
 
+def _app_uid():
+    """查 app UID(安装后固定), 用于 logcat 按 UID 过滤"""
+    try:
+        out = subprocess.run(["adb", "shell", "pm", "list", "packages", "-U", "com.shiye.cyclingai.ride"],
+                             capture_output=True, text=True, timeout=10).stdout
+        for line in out.splitlines():
+            if " uid:" in line:
+                return line.strip().rsplit("uid:", 1)[1]
+    except Exception:
+        pass
+    return None
+
 def start_logcat():
-    """后台抓 logcat, 写到桌面/自动化测试log/training_plan.log"""
+    """后台抓 logcat, 按 UID 过滤 app 全量日志, 写到 training_plan.log"""
     global _logcat_proc
-    cmd = ["adb", "logcat", "-v", "time", "-s", "ActivityManager:I", "AndroidRuntime:E",
-           "Appium_*:I", "*:S"]
+    uid = _app_uid()
+    if uid:
+        # app 全量日志(Mapbox下载/业务打印/崩溃), 不再 *:S 静音
+        cmd = ["adb", "logcat", "-v", "time", f"--uid={uid}"]
+    else:
+        # UID 取不到时兜底: 系统上下文+崩溃
+        cmd = ["adb", "logcat", "-v", "time", "-s", "ActivityManager:I", "AndroidRuntime:E", "*:S"]
+        print("[日志] 未取到 app UID, 退化为系统上下文过滤")
     try:
         _logcat_proc = subprocess.Popen(cmd, stdout=open(LOG_FILE, "w", encoding="utf-8", errors="ignore"))
     except Exception as e:
