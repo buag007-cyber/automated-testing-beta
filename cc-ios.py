@@ -9,25 +9,36 @@ from pathlib import Path
 
 # ├─ 自动加载项目虚拟环境的包 ──
 _script_dir = Path(__file__).resolve().parent
-_venv_sp = _script_dir / ".venv" / "Lib" / "site-packages"
-_py39_sp = Path(r"C:\Users\Administrator\AppData\Local\Programs\Python\Python39\Lib\site-packages")
-for _p in [_venv_sp, _py39_sp]:
-    if _p.is_dir() and str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
+_venv_sp = str(_script_dir / ".venv" / "Lib" / "site-packages")
+_py39_sp = str(Path(r"C:\Users\Administrator\AppData\Local\Programs\Python\Python39\Lib\site-packages"))
+# 保证 .venv 的包恒排在 py39 之前:
+# 用 .venv 解释器运行时, .venv 已天然在 sys.path 中, 若此时只把 py39 insert(0),
+# 反而会让 py39 的旧版 pymobiledevice3 shadow 掉 .venv 的新版(本脚本此前的bug,
+# 报错: No module named 'pymobiledevice3.remote.userspace_tunnel')。
+# 正确做法: 先把两个路径从 sys.path 摘除, 再按 [py39, .venv] 依次 insert(0),
+# 最终顺序恒为 [.venv, py39, ...]。
+for _p in [_py39_sp, _venv_sp]:
+    if _p in sys.path:
+        sys.path.remove(_p)
+for _p in [_py39_sp, _venv_sp]:
+    if Path(_p).is_dir():
+        sys.path.insert(0, _p)
 
 # ── 依赖检查 ──
 try:
     import gpxpy
     from pymobiledevice3.lockdown import create_using_usbmux
     from pymobiledevice3.services.simulate_location import DtSimulateLocation
-except ImportError:
-    print("[ERROR] 请先安装: pip install gpxpy pymobiledevice3")
+except ImportError as e:
+    # 打印真实原因(如C扩展版本不匹配), 避免误以为没装包
+    print(f"[ERROR] 依赖导入失败: {e!r}")
+    print("        请确认用对解释器: .venv/Scripts/python.exe 或 Python39, 再 pip install gpxpy pymobiledevice3")
     sys.exit(1)
 
 # ── 配置 ──
 @dataclass
 class Config:
-    gpx_file: str = r"C:\Users\Administrator\Desktop\SHANHAILIANCHENG.gpx"  # GPX路线文件
+    gpx_file: str = r"C:\Users\Administrator\Desktop\梦工厂.gpx"  # GPX路线文件
     flat_speed_kmh: float = 25.0            # 平路速度(km/h)
     altitude_scale: float = 1.0             # 海拔缩放
     loop: bool = True                       # 是否循环

@@ -80,3 +80,9 @@ def test_map_download_channel(country, lat, lon, distance):
         if os.path.exists(dest):
             os.remove(dest)
             print(f"[{country}] 已清理临时文件")
+
+
+if __name__ == "__main__":
+    # PyCharm ▶ / 命令行直接跑时执行pytest, -s显示下载进度, 退出码透传
+    import sys
+    sys.exit(pytest.main([__file__, "-v", "-s"]))

@@ -56,3 +56,9 @@ def test_map_download_channel(country, lat, lon, distance):
         print(f"[{country}] 接口+下载 {time.time()-t0:.1f}s, {size/1024/1024:.2f}MB, 校验OK")
     finally:
         os.remove(dest)
+
+
+if __name__ == "__main__":
+    # PyCharm ▶ / 命令行直接跑时执行pytest, -s显示下载进度, 退出码透传
+    import sys
+    sys.exit(pytest.main([__file__, "-v", "-s"]))

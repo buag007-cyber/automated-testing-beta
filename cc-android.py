@@ -14,7 +14,7 @@ import gpxpy
 class Config:
     appium_server: str = "http://127.0.0.1:4723"  # Appium地址
     app_pkg: str = "com.shiye.cyclingai.ride"      # 目标App包名
-    gpx_file: str = r"C:\Users\Administrator\Desktop\6-26骑行.gpx"
+    gpx_file: str = r"C:\Users\Administrator\Desktop\梦工厂.gpx"
     flat_speed_kmh: float = 25.0            # 平路速度(km/h)
     altitude_scale: float = 2.0             # 海拔缩放倍数
     rider_kg: float = 70.0                  # 体重(kg), 卡路里计算用
