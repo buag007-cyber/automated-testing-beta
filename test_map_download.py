@@ -3,8 +3,10 @@
 #
 # 流程: 运动界面 → 地图区域 → 离线地图管理 →
 #       若有地图先删除 → 点下载 → 等待完成 → 返回
-# 完成检测: 地图删除按钮重现 (ID=mapManagementPageCancelIbt + 文字=删除)
-# 日志: 全程抓 logcat 到 map_download.log, 可给AI分析
+# 完成检测(两路信号, 谁先到算谁):
+#   1) UI轮询: 删除按钮重现 (ID=mapManagementPageCancelIbt + 文字=删除)
+#   2) UI辅助: 管理页整体消失 = app上传完成自动返回; 完成/超时都存页面XML快照
+# 日志: 全程抓 logcat 到 map_download.log, 供事后分析(不参与完成判断)
 
 from appium import webdriver
 from appium.options.android import UiAutomator2Options
@@ -114,7 +116,8 @@ def start_logcat():
         cmd = ["adb", "logcat", "-v", "time", "-s", "ActivityManager:I", "AndroidRuntime:E", "*:S"]
         print("[日志] 未取到 app UID, 退化为系统上下文过滤")
     try:
-        _logcat_proc = subprocess.Popen(cmd, stdout=open(LOG_FILE, "w", encoding="utf-8", errors="ignore"))
+        # buffering=1 行缓冲: 每行立即落盘, 让log完成信号能实时读到
+        _logcat_proc = subprocess.Popen(cmd, stdout=open(LOG_FILE, "w", encoding="utf-8", errors="ignore", buffering=1))
     except Exception as e:
         print(f"[日志] logcat 启动失败: {e}")
 
@@ -123,42 +126,69 @@ def stop_logcat():
     if _logcat_proc:
         _logcat_proc.terminate()
         _logcat_proc = None
-        print(f"[日志] 已保存: {LOG_FILE}")
+        print("[日志] logcat 已停止")
 
 
 # ── 下载完成检测 ──
 
+_ui_snapshots = []   # 本次运行生成的XML快照路径(结束后按结果清理)
+
+def dump_ui(driver, tag):
+    """UI辅助: 完成/超时/异常时存一份页面XML快照, 事后确认停在哪个页面"""
+    try:
+        path = os.path.join(LOG_DIR, f"map_download_{tag}_{time.strftime('%H%M%S')}.xml")
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(driver.page_source)
+        _ui_snapshots.append(path)
+        print(f"[UI] 页面快照: {path}")
+    except Exception as e:
+        print(f"[UI] 快照失败: {e}")
+
 def wait_download_done(driver, timeout=7200):
-    """等待下载完成: 删除按钮重现 (ID=mapManagementPageCancelIbt 且文字=删除)
-    轮询期间持续抓进度文本(百分比/大小), 每20秒打印一次诊断"""
+    """等待下载+上传完成, 两路信号谁先到算谁:
+    1) UI轮询: 删除按钮重现 (CancelIbt文字含'删除')
+    2) UI辅助: 管理页整体消失 = app上传完成自动返回 (兼容按钮不重现的情况)
+    完成/超时都存页面XML快照, 事后确认实际停在哪个页面"""
     start = time.time()
     last_log = 0
+    page_seen = False   # 是否确认过管理页还在(防止一开始误判页面消失)
     while time.time() - start < timeout:
-        # 每次轮询都看 CancelIbt 的真实状态
+        # 1) UI轮询按钮 + 页面状态
         try:
             btns = driver.find_elements(AppiumBy.ID, f"{ID}/mapManagementPageCancelIbt")
             states = [f"'{b.text}'" for b in btns]
         except Exception:
             states = ["查询异常"]
+            btns = []
+        back_visible = is_displayed(driver, (AppiumBy.ID, MAP_MANAGE_BACK), timeout=1)
+        page_here = bool(btns) or back_visible
+        if page_here:
+            page_seen = True
+        # 进度文本(仅诊断用)
+        prog = ""
+        try:
+            texts = [el.text for el in driver.find_elements(
+                AppiumBy.ANDROID_UIAUTOMATOR,
+                'new UiSelector().className("android.widget.TextView")')]
+            prog = next((t for t in texts if "%" in t), "") \
+                or next((t for t in texts if "MB" in t or "GB" in t), "")
+        except Exception:
+            pass
+        # 2) 诊断打印
         if time.time() - last_log > 20:
-            # 抓页面进度文本: 百分比 或 已下载大小(MB/GB)
-            prog = ""
-            try:
-                texts = [el.text for el in driver.find_elements(
-                    AppiumBy.ANDROID_UIAUTOMATOR,
-                    'new UiSelector().className("android.widget.TextView")')]
-                prog = next((t for t in texts if "%" in t), "") \
-                    or next((t for t in texts if "MB" in t or "GB" in t), "")
-            except Exception:
-                pass
             print(f"  [诊断] {int((time.time()-start)//60)}分{int(time.time()-start)%60}s  "
                   f"CancelIbt: {states}  进度: {prog}")
             last_log = time.time()
-        # 完成信号: 按钮存在且文字=删除 (下载中是"取消", 不匹配)
+        # 3) 完成判定: 删除按钮重现 / 管理页自动返回
         if any("删除" in s for s in states):
-            return f"删除按钮重现, 耗时 {time.time()-start:.0f}s"
+            dump_ui(driver, "btn_delete")
+            return f"删除按钮重现(UI), 耗时 {time.time()-start:.0f}s"
+        if page_seen and not page_here:
+            dump_ui(driver, "page_gone")
+            return f"管理页自动返回(页面消失), 耗时 {time.time()-start:.0f}s"
         time.sleep(10)
-    raise TimeoutError(f"下载超时 {timeout}s")
+    dump_ui(driver, "timeout")
+    raise TimeoutError(f"下载超时 {timeout}s (页面停留见XML快照, 详情查map_download.log)")
 
 
 # ── 主流程 ──
@@ -168,6 +198,8 @@ def test_map_download(driver=None):
     own = driver is None
     if own:
         driver = webdriver.Remote(APPIUM_URL, options=UiAutomator2Options().load_capabilities(CAPS))
+    _ui_snapshots.clear()   # 清掉上次运行的快照记录
+    success = False
 
     try:
         # 下载期间保持亮屏
@@ -207,9 +239,11 @@ def test_map_download(driver=None):
         result = wait_download_done(driver)
         print(f"[6] ✅ 下载完成 ({result})")
 
-        # 7. 离线地图管理返回
-        wait_click(driver, (AppiumBy.ID, MAP_MANAGE_BACK))
-        print("[7] 离线地图管理返回")
+        # 7. 离线地图管理返回 (上传成功可能已自动返回, 找不到就跳过)
+        if not try_click(driver, (AppiumBy.ID, MAP_MANAGE_BACK), timeout=3):
+            print("[7] 管理页已自动返回, 跳过")
+        else:
+            print("[7] 离线地图管理返回")
 
         # 8. 地图返回
         wait_click(driver, (AppiumBy.ID, MAP_BACK))
@@ -220,11 +254,29 @@ def test_map_download(driver=None):
         print("[9] 返回运动界面")
 
         print("\n🎉 离线地图下载流程完成")
+        success = True
 
     finally:
         # 恢复自动锁屏
         subprocess.run(["adb", "shell", "svc", "power", "stayon", "false"])
         stop_logcat()
+        # 临时产物清理: 成功自动删, 失败保留供分析
+        if success:
+            for p in _ui_snapshots:
+                try:
+                    os.remove(p)
+                except OSError:
+                    pass
+            try:
+                os.remove(LOG_FILE)
+            except OSError:
+                pass
+            print("[清理] 已删除XML快照和map_download.log")
+        else:
+            if _ui_snapshots:
+                print("[保留] 失败快照: " + ", ".join(_ui_snapshots))
+            if os.path.exists(LOG_FILE):
+                print(f"[保留] 失败日志: {LOG_FILE}")
         if own:
             driver.quit()
 
