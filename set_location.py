@@ -3,8 +3,17 @@
 # 场景: 把手机定位改到指定坐标, 注入一次生效(如测试固定地点的业务)
 # 原理: 开mock开关 → 连Appium(不需要appPackage, 只注入位置) → set_location() → 断开
 
-import time
-import subprocess
+import sys, time, subprocess
+from pathlib import Path
+
+# ├─ 自动加载项目 .venv 的包: 让"python xxx.py"在任何解释器下都能跑 ──
+_script_dir = Path(__file__).resolve().parent
+_venv_sp = str(_script_dir / ".venv" / "Lib" / "site-packages")
+if _venv_sp in sys.path:                    # 已经在路径里就摘掉, 再插到最前
+    sys.path.remove(_venv_sp)
+if Path(_venv_sp).is_dir():
+    sys.path.insert(0, _venv_sp)
+
 from appium import webdriver
 from appium.options.android import UiAutomator2Options
 
@@ -28,7 +37,7 @@ CAPS = {
 def main():
     # 1. 打开系统mock定位开关 (Appium自动装的io.appium.settings需要它)
     subprocess.run(["adb", "shell", "settings", "put", "secure", "mock_location", "1"])
-
+    times = int(sys.argv[1]) if len(sys.argv) > 1 else 3
     # 2. 连接Appium (无appPackage的空session, 实测可用)
     driver = webdriver.Remote(APPIUM_URL, options=UiAutomator2Options().load_capabilities(CAPS))
     try:
@@ -36,7 +45,7 @@ def main():
         driver.update_settings({"locationProvider": "mock"})
 
         # 4. 注入坐标, 连续3次确保App定位更新生效
-        for i in range(3):
+        for i in range(times):
             driver.set_location(LAT, LON, ELE, speed=SPEED)
             print(f"[{i+1}/3] 注入: {LAT}, {LON} 海拔{ELE}m 速度{SPEED}m/s")
             time.sleep(1)
